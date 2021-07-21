@@ -1,0 +1,330 @@
+### This code is associated with paper: Study becomes insight: ecological learning from machine learning.
+### It encompasses two parts: 1. simulation design and 2. analysis.
+#####################################1. simulation design#####################################
+
+library(fields)		# A library with image.plot() function
+# Provides image with legend strip
+
+Deg2Rad <- pi/180		# To convert degrees to radians
+
+### Part A: Create pseudo-environmental data for a hypothetical study domain.  
+### It is hypothyzed as a rectangular continent or 'the globe' (180 lat x 360 long cells).  
+### The environmental pseudo-data are not real, but they represent the kinds of data 
+### that might define species richness, for example. 
+
+### Part B: We take temperature (using  hump-shaped relationship), rainfall 
+### (using  increasing curve, and fire (decreasing curve) 
+### to simulate species richness...  this will make a better pseduo-dataset that embodies 
+### 3 functional relationships, their complex spatial (and noisy) variability 
+
+#### Define the grid
+lat <- seq(-90,90, by=1)		# -90, 90
+lon <- seq(1,360, by=1)			# 1, 360
+GlobalMatrix <- matrix(NA,nrow=length(lat)-1,  # Create global lat-long matrix
+                       ncol=length(lon)-1 ) # with dimensions(180 rows, 359 cols)
+
+dev.new()
+fields.style()
+tiff(filename=paste("four factors.tif"), width=12, height=8, units="in", res = 300)
+
+set.panel(2,3)		# Graphic Panel Set for Multiple Images
+par( mar=c(4.1,5,4,4.3))
+
+#### PART A: Create spatially varying environmental pseudo-data 
+#### 1 
+#### Create Air-Temperature pseudo-data
+## Mean annual air temperature varies with lat
+## We will estimate this in K assuming mean annual T at equator is 320K
+##  and that we lose 0.5K MAT per degree of latitude to north and south 
+GlobalMeanT <- GlobalMatrix		# Copies 
+for (i in 1:length(lat)-1) {
+  for (j in 1:length(lon)-1) {
+    GlobalMeanT[i,j] <- 320 - 0.5*abs(lat[i]+0.5) * rnorm(1,1,0.3)
+  }  }
+
+# The 't' (transpose) needed since image() starts plotting from lower left
+# and we want to plot 180 rows of latitude x 360 columns of longitude
+#fields.style()
+image.plot(lon, lat, t(GlobalMeanT), col=terrain.colors(40), axes=FALSE,
+           legend.shrink=1, legend.width=1.5, legend.cex=3, xlab = "", ylab = "")
+title(main = list("(a) Mean Annual Temperature (K)", cex=2, font=1),
+      xlab=list("Longitude",cex=1.8,font=1), ylab=list("Latitude",cex=1.8,font=1))
+axis(1, at=seq(0, 360, by = 60),font=1,cex.axis=1.8)
+axis(2, at=seq(-90, 90, by = 30),font=1,cex.axis=1.8)
+
+#### 2 
+#### Create rainfall pseudo-data that peaks in the center and declines outwards
+## 
+GlobalRain <- GlobalMatrix
+for (i in 1:length(lat)-1) {
+  for (j in 1:length(lon)-1) {
+    GlobalRain[i, j] = 3000 *
+      exp(-( (lat[i] - 0)^2 / (2 * 50^2))) *
+      exp(-( (lon[j] - 180)^2 / (2 * 100^2))) * rnorm(1, 1, 0.35)
+  } };
+GlobalRain[which(GlobalRain<0)] <- 0 # set genative value to 0
+GlobalRain[which(GlobalRain>=4000)] <- 4000 # set the maximum to be 4000
+
+image.plot(lon, lat, t(GlobalRain), col=terrain.colors(100), axes=FALSE,
+           legend.shrink=1,legend.width=1.5,legend.cex=3,xlab = "", ylab = "")
+title(main = list("(b) Mean Annual Precipitation (mm)",cex=2,font=1),
+      xlab=list("Longitude",cex=1.8,font=1),ylab=list("Latitude",cex=1.8,font=1))
+axis(1, at=seq(0, 360, by = 60),font=1,cex.axis=1.8)
+axis(2, at=seq(-90, 90, by = 30),font=1,cex.axis=1.8)
+
+#### 3 
+#### Fire frequency peaks in mesic systems (not too dry, not too wet) 
+GlobalFire <- GlobalMatrix
+meanRain=1500; maxTemp <- max(GlobalMeanT)
+for (i in 1:length(lat)-1) {
+  for (j in 1:length(lon)-1) {
+    FireProb = (min(0.8, max(0, (0.8 - abs(GlobalRain[i,j]-meanRain)/meanRain) *
+                               rnorm(1,1,0.35))))	*(min(1, exp(-( (GlobalMeanT[i,j] - maxTemp)/maxTemp)) ))
+    GlobalFire[i, j] = FireProb
+  }  }
+
+image.plot(lon, lat, t(GlobalFire), col=topo.colors(100), axes=FALSE,
+           legend.shrink=1,legend.width=1.5,legend.cex=3,xlab = "", ylab = "")
+title(main = list("(c) Fire probability",cex=2,font=1),
+      xlab=list("Longitude",cex=1.8,font=1),ylab=list("Latitude",cex=1.8,font=1))
+axis(1, at=seq(0, 360, by = 60),font=1,cex.axis=1.8)
+axis(2, at=seq(-90, 90, by = 30),font=1,cex.axis=1.8)
+
+#### 4
+#### V1 increases from west to east 
+GlobalV1 <- GlobalMatrix
+for (i in 1:length(lat)-1) {
+  for (j in 1:length(lon)-1) {
+    GlobalV1[i,j] <- 1 + (lon[j]/36)*rnorm(1,1,0.35)
+  }  }
+
+image.plot(lon, lat, t(GlobalV1), col=topo.colors(100), axes=FALSE,
+           legend.shrink=1,legend.width=1.5,legend.cex=3,xlab = "", ylab = "")
+title(main = list("(d) V1",cex=2,font=1),
+      xlab=list("Longitude",cex=1.8,font=1),ylab=list("Latitude",cex=1.8,font=1))
+axis(1, at=seq(0, 360, by = 60),font=1,cex.axis=1.8)
+axis(2, at=seq(-90, 90, by = 30),font=1,cex.axis=1.8)
+
+#### 5
+### add a noise variable (V2)
+GlobalNoise <- GlobalMatrix
+GlobalNoise[is.na(GlobalNoise)]=0;
+a=0.5; b=-0.5; c=-0.1
+for (i in 1:length(lat)-1) {
+  for (j in 1:length(lon)-1) {
+    GlobalNoise[i,j]<-runif(1,0,1)*(a*(GlobalRain[i,j]-min(GlobalRain))/(max(GlobalRain-min(GlobalRain))) + 
+                                      b*(GlobalMeanT[i,j]-min(GlobalMeanT))/(max(GlobalMeanT-min(GlobalMeanT))) +
+                                      c*(GlobalFire[i,j]-min(GlobalFire))/(max(GlobalFire-min(GlobalFire))))
+  } }
+
+image.plot(lon, lat, t(GlobalNoise), col=topo.colors(100), axes=FALSE,
+           legend.shrink=1,legend.width=1.5,legend.cex=3,xlab = "", ylab = "")
+title(main = list("(e) V2",cex=2,font=1),
+      xlab=list("Longitude",cex=1.8,font=1),ylab=list("Latitude",cex=1.8,font=1))
+axis(1, at=seq(0, 360, by = 60),font=1,cex.axis=1.8)
+axis(2, at=seq(-90, 90, by = 30),font=1,cex.axis=1.8)
+
+# 6. Plot species richness, calculated at line
+image.plot(lon, lat, t(SN), col=topo.colors(50), axes=FALSE, zlim=range(0,100),
+           legend.shrink=1, legend.width=1.5, legend.cex=3, xlab = "", ylab = "")
+title(main = list("(f) Species richness", cex=2, font=1),
+      xlab=list("Longitude", cex=1.8, font=1), ylab=list("Latitude",cex=1.8,font=1))
+axis(1, at=seq(0, 360, by = 60),font=1,cex.axis=1.8)
+axis(2, at=seq(-90, 90, by = 30),font=1,cex.axis=1.8)
+
+dev.off()
+
+#### PART B:
+#### We now have 3 pseudo-climate coverages to work with
+#### MAT (T), Rainfall (R), Fire (F) 
+#### We now have maps of each X1 - x3 varying somewhat independently, with some autocorrelation
+#### and some not being correlated, just as in real systems.
+
+#### Use the X1-X3 relationships we already have to predict hypothetical "Species Number"
+#### 1. normalize the three relationships to predict cover (let's drop cover and call it SN now) 
+#### between zero and 1... including the random noise in the functional relationships, thus 
+#### SNnorm_x1 = SN_x1/Max(SN_x1),  where
+#### SN_xi is the response variable as shown in Figure 1... etc. 
+
+# 1 MAT 
+mu=292; theta=25
+normal_tem <- function(x) { 60/sqrt(2*pi*theta^2) * exp(-(x-mu)^2/(2*(theta)^2)) }# bell-shape function
+SN_x1 <- normal_tem(GlobalMeanT);
+
+noise<- rnorm(length(SN_x1), 0, 0.1); # add noise/error term
+SNnorm_x1 <- SN_x1 + noise
+
+# 2 MAP
+sigmoid_rain = function(x) { 1 / (1 + exp(-(1/500)*(x-2000)))}
+SN_x2 <- sigmoid_rain(GlobalRain); range(SN_x2); hist(SN_x2)
+
+noise<- rnorm(length(SN_x2), 0, 0.1); SNnorm_x2 <- SN_x2 + noise;
+plot(as.numeric(GlobalRain), SNnorm_x2, pch=".", col="grey")
+points(as.numeric(GlobalRain), SN_x2)
+
+# 3 fire frequency
+sigmoid_fire = function(x) {1/(1+exp(14*(x-2/7)))}
+
+SN_x3 <- sigmoid_fire(GlobalFire);
+noise<- rnorm(length(SN_x3), 0, 0.1); 
+SNnorm_x3 <- SN_x3 + noise;
+
+
+#### 2. Then estimate the joint effects of x1-x4 on SN using SN = SNmax *
+####       SNnorm_x1 * SNnorm_x2 * Snnorm_x3 * SNnorm_x4 
+#### where SNmax is some arbitrary maximum species richness, say 50.
+SNmax=100
+#SN = SNmax * SNnorm_x1 * SNnorm_x2 * SNnorm_x3 * SNnorm_x4
+# higher MAT
+w1=0.6; w2=0.3; w3=0.1; weight<- c(c(w1,w2,w3),0,0)/sum(w1+w2+w3)
+# higher MAP and fire
+#w1=0.3;w2=0.55;w3=0.15;weight<- c(c(w1,w2,w3),0,0)/sum(w1+w2+w3)
+SN <- GlobalMatrix
+for (i in 1:length(lat)-1) {
+  for (j in 1:length(lon)-1) {
+    #w5<-runif(1,0,1)
+    SN[i,j] = SNmax * (w1*SNnorm_x1[i,j] + w2*SNnorm_x2[i,j] + 
+                         w3*SNnorm_x3[i,j])/sum(weight)
+  }
+}
+
+###  This will give a pseduo-dataset (with 360*180 points in it) where SN is estimated 
+### from the joint effect of ALL three VARIABLES.
+
+#### PART C
+#### 1. fit ML models
+data<-data.frame(GlobalMeanT=as.vector(GlobalMeanT, mode="numeric"),
+                 GlobalRain=as.vector(GlobalRain, mode="numeric"),
+                 GlobalFire=as.vector(GlobalFire, mode="numeric"),
+                 GlobalNut=as.vector(GlobalNut, mode="numeric"),
+                 GlobalNoise=as.vector(GlobalNoise, mode="numeric"),
+                 SN=as.vector(SN, mode="numeric"))
+names(data)<-c("MAT", "MAP","Fire.frequency", "V1","V2","SN"); datanames<-names(data)
+data <- data[data$SN<=100 & data$SN>=0, ]# constrain the range of SN
+
+
+
+
+#####################################2. data analysis#####################################
+library(randomForest)# functions: randomForest and tuneRF
+libaray(dismo)# bgm
+library(party)# cforest function
+library(iml) # functions to get pdp and ale
+
+samplesize <- c(100, seq(500,5500,500))# sample size 100, from 500 to 5500 with an interval of 500
+
+# collect feature/variable importance
+imp_rf_all_IncMSE<-NULL; imp_rf_all_NodePurity<-NULL; imp_brt_all<-NULL; imp_cforet_all<-NULL;
+# collect pdp and ale functional relationships
+ale_rf_allsample<-NULL; ot_rf_allsample<-NULL; ale_brt_allsample<-NULL; ot_brt_allsample<-NULL;
+
+for (s in 1: length(samplesize)){
+  # print(paste("sample size", samplesize[s])); 
+  sampleall<-100# force bootstraps to be 100
+  for (it in 1:sampleall){
+    # print(paste("sample size", samplesize[s], "iteration", it))
+    data <- datacopy[sample(nrow(datacopy), samplesize[s]),]
+    datanames<-names(data)[-ncol(data)]
+    
+    # Kolmogorov-Smirnov test to examine if the variables in sampled dataset follow the same distribution of population
+    ks1 <- ks.test(datacopy$MAT, data$MAT);
+    ks2 <- ks.test(datacopy$MAP, data$MAP);
+    ks3 <- ks.test(datacopy$Fire.frequency, data$Fire.frequency);
+    ks4 <- ks.test(datacopy$V1, data$V1);
+    ks5 <- ks.test(datacopy$V2, data$V2);
+    
+    # p value above 0.05, then continues
+    if (ks1$p.value>=0.05 & ks2$p.value>=0.05 & ks3$p.value>=0.05 & ks4$p.value>=0.05 & ks5$p.value>=0.05){
+      
+    ########## A: fit random forest ##########
+    library(randomForest)
+    set.seed(100)
+    # how many independent variables
+    mtry <- tuneRF(x = data[,-ncol(data)], y = data[, ncol(data)], nTreeTry = 100, 
+                   stepFactor = 1.5, improve = 0.01, trace=F, plot=F);
+    # random forest model
+    RForest_1 <- randomForest(SN~., data=data, importance=TRUE, ntrees=100, 
+                                              mtry=mtry[1,][which.max(mtry[,2])], na.action=na.omit);
+      # calculate feature importance and normalize
+      imp_rf <- importance(RForest_1); 
+      imp_rf <- 100*imp_rf/colSums(imp_rf)[col(imp_rf)];
+      
+      # set the column names
+      colnames(imp_rf) <- c(paste("IncMSE",samplesize[s],it), paste("IncNodePurity", samplesize[s], it));
+      
+      # add importance results from the new iteration to the data frame
+      # permutation importance
+      imp_rf_all_IncMSE <- rbind(imp_rf_all_IncMSE, c(imp_rf[,1], R2=cor(RForest_1$predicted,data$SN)^2));
+      rownames(imp_rf_all_IncMSE)[nrow(imp_rf_all_IncMSE)] <- paste(samplesize[s],it);
+      
+      # Gini importance
+      imp_rf_all_NodePurity <- rbind(imp_rf_all_NodePurity, c(t(imp_rf)[2,], R2=cor(RForest_1$predicted,data$SN)^2));
+      rownames(imp_rf_all_NodePurity)[nrow(imp_rf_all_NodePurity)] <- paste(samplesize[s], it);
+      
+      #get pdp and ale for RF with predictors
+      library(iml) # for functions to get pdp and ale 
+      predictor.rf <- Predictor$new(RForest_1, data = data[,-ncol(data)], y=data[,ncol(data)]);
+      
+      ot_rf <- matrix(, nrow=length(datanames), ncol=gridsize1); ale_rf <- matrix(,nrow=length(datanames), ncol=gridsize1);
+      for (names in 1:length(datanames)){
+        ot <- FeatureEffect$new(predictor.rf, datanames[names], grid.size = gridsize1, method = "pdp");
+        ot_rf[names,1:nrow(ot$results)] <- as.matrix(ot$results[,2]);
+        ale <- FeatureEffect$new(predictor.rf, datanames[names], grid.size = gridsize1-1, method = "ale");
+        ale_rf[names,1:nrow(ale$results)] <- as.matrix(ale$results[,2]);
+      }
+      ot_rf <- as.data.frame(ot_rf); ale_rf <- as.data.frame(ale_rf)# convert to data frame
+      rownames(ot_rf) <- paste(datanames, samplesize[s], it); ot_rf$R2 <- cor(RForest_1$predicted, data$SN)^2;
+      rownames(ale_rf) <- paste(datanames, samplesize[s], it); ale_rf$R2 <- cor(RForest_1$predicted, data$SN)^2;
+      
+      ot_rf_allsample <- rbind(ot_rf_allsample, ot_rf);
+      ale_rf_allsample <- rbind(ale_rf_allsample, ale_rf);
+      
+      ########## B: fit BRT ##########
+      library(dismo)
+      RBRT_1 <- gbm.step(data = data, gbm.x = 1:(ncol(data)-1) , gbm.y = ncol(data), family = "gaussian",
+                         tree.complexity = 8, learning.rate = 0.1, bag.fraction = 0.9, verbose=F, plot.main = F);
+      if(is.null(RBRT_1)){next}else {
+        #get split feature importance
+        imp_brt <- data.frame(RBRT_1$contributions[order(factor(RBRT_1$contributions$var, levels=datanames)),]);
+        imp_brt <- t(as.data.frame(c(imp_brt$rel.inf, R2=cor(RBRT_1$fit,data$SN)^2)));
+        colnames(imp_brt) <- c(datanames,"R2"); rownames(imp_brt) <- paste(samplesize[s], it);
+        imp_brt_all <- rbind(imp_brt_all, imp_brt);
+        
+        # get PDP and ALE for BRT
+        # predict function for BRT
+        predict_function <- function(model,newdata){
+          return(as.data.frame(predict(model, newdata, n.trees=RBRT_1$n.trees)))}
+        predictor.brt <- Predictor$new(model=RBRT_1, data=data[, -ncol(data)], y=data[, ncol(data)],
+                                       predict.fun=predict_function)
+        
+        ot_brt<-matrix(, nrow=length(datanames), ncol=gridsize1); ale_brt<-matrix(, nrow=length(datanames), ncol=gridsize1)
+        for (names in 1:length(datanames)){
+          ot <- FeatureEffect$new(predictor.brt, datanames[names], grid.size = gridsize1, method = "pdp");
+          ot_brt[names, 1:nrow(ot$results)] <- as.matrix(ot$results[, 2]);
+          ale <- FeatureEffect$new(predictor.brt, datanames[names], grid.size = gridsize1-1, method = "ale");
+          ale_brt[names,1:nrow(ale$results)] <- as.matrix(ale$results[, 2]);
+        }
+        
+        ot_brt <- as.data.frame(ot_brt); ale_brt <- as.data.frame(ale_brt)
+        rownames(ot_brt) <- paste(datanames, samplesize[s], it); ot_brt$R2 <- cor(RBRT_1$fit, data$SN)^2
+        rownames(ale_brt) <- paste(datanames, samplesize[s], it); ale_brt$R2 <- cor(RBRT_1$fit, data$SN)^2
+        ot_brt_allsample <- rbind(ot_brt_allsample, ot_brt);
+        ale_brt_allsample <- rbind(ale_brt_allsample, ale_brt);
+      }
+      
+      ########## C. fit cforest ##########
+      library(party)
+      if(s<7){
+        RcForest_1 <- cforest(SN~., data=data, control= cforest_unbiased(mtry = 3, ntree = 100));
+        # conditional feature importance
+        set.seed(250); imp_cforet <- varimp(RcForest_1, conditional=TRUE);
+        imp_cforet <- c(imp_cforet, R2=cor(predict(RcForest_1, newdata=data[, 1:(ncol(data)-1)]), data$SN)^2);
+        
+        imp_cforet_all <- rbind(imp_cforet_all, imp_cforet)
+        rownames(imp_cforet_all)[nrow(imp_cforet_all)] <- paste(samplesize[s], it)
+      }else{next}
+      
+    }else{sampleall <- sampleall + 1;}
+  }
+}
+
