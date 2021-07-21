@@ -1,5 +1,6 @@
 ### This code is associated with paper: Study becomes insight: ecological learning from machine learning.
 ### It encompasses two parts: 1. simulation design and 2. analysis.
+### Author: Qiuyan Yu: https://scholar.google.com/citations?user=FTLGNtIAAAAJ&hl=en 
 #####################################1. simulation design#####################################
 
 library(fields)		# A library with image.plot() function
